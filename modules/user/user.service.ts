@@ -1,3 +1,4 @@
+import { UserCache } from "../../cache/user.cache";
 import { User } from "./user.entity";
 import { UserRepository } from "./user.repository";
 import * as bcrypt from 'bcrypt';
@@ -6,7 +7,17 @@ console.log('UserRepo =', UserRepository);
 export class UserService {
 
     static async getAll() {
-        return UserRepository.find();
+        // 1. check cache
+        const cached = await UserCache.getAll()
+        if (cached) return cached
+        
+        // 2. query DB
+        const users = await UserRepository.find()
+
+        // 3. set cache
+        await UserCache.setAll(users)
+
+        return users
     }
     static async getById(id: number) {
         const user = await UserRepository.findOneBy({ id });
@@ -43,8 +54,12 @@ export class UserService {
         role: role ?? 'student',
         })
 
-        // 4. Lưu DB
-        return await UserRepository.save(user)
+        const savedUser = await UserRepository.save(user)
+
+        //clear cache sau khi ghi DB
+        await UserCache.clearAll()
+
+        return savedUser
     }
     static async delete(id: number) {
         const user = await UserRepository.findOneBy({ id });
